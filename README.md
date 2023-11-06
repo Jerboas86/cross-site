@@ -1,38 +1,75 @@
-# create-svelte
+# Adapter-vercel: Cross-site POST form submissions are forbidden
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
+## Bug report
 
-## Creating a project
+with `vite preview`, form action requests are blocked with message `Cross-site POST form submissions are forbidden`.
 
-If you're seeing this, you've probably already done this step. Congrats!
+requests are blocked when using:
 
-```bash
-# create a new project in the current directory
-npm create svelte@latest
+- `@vitejs/plugin-basic-ssl` plugin
+- or `vite-plugin-mkcert` plugin
 
-# create a new project in my-app
-npm create svelte@latest my-app
-```
+See bug in plugin-basic-ssl branch
 
-## Developing
+## Solution:
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+form action requests are accepted when using your own certificate in TLS only mode.
 
-```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
+1. Create your own certificate with mkcert
 
 ```bash
-npm run build
+mkdir cert
+cd cert
+mkcert -key-file key.pem -cert-file cert.pem localhost
 ```
 
-You can preview the production build with `npm run preview`.
+2. Config vite server to use your certificate in `vite.config.ts`
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+```typescript
+export default defineConfig({
+	server: {
+		https: {
+			key: fs.readFileSync(`${__dirname}/cert/key.pem`),
+			cert: fs.readFileSync(`${__dirname}/cert/cert.pem`)
+		},
+	},
+    [...]
+});
+```
+
+3. Downgrade tls+http2 to tls only in `vite.config.ts` (not working with tls+http2):
+
+```typescript
+export default defineConfig({
+	server: {
+		https: {
+			key: fs.readFileSync(`${__dirname}/cert/key.pem`),
+			cert: fs.readFileSync(`${__dirname}/cert/cert.pem`)
+		},
+        // add proxy property
+        proxy:{}
+	},
+    [...]
+});
+```
+
+4. Launch https server with `vite preview` command (not working with `vite preview --https`)
+
+## Alternative solution:
+
+**WARNING**: this solution introduces security vulnerability in your code. This should not be used in production.\
+`@vitejs/plugin-basic-ssl` and `vite-plugin-mkcert` plugins can be used when CSRF protection is disabled.
+
+1. Disable CSRF protection in `svelte.config.js`:
+
+```javascript
+const config = {
+	// [...]
+	kit: {
+		//[...]
+		csrf: {
+			checkOrigin: false
+		}
+	}
+};
+```
