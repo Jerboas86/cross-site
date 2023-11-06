@@ -1,16 +1,9 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
-import fs from 'fs';
+import baseSsl from '@vitejs/plugin-basic-ssl';
 
 export default defineConfig({
-	server: {
-		https: {
-			key: fs.readFileSync(`${__dirname}/cert/key.pem`),
-			cert: fs.readFileSync(`${__dirname}/cert/cert.pem`)
-		},
-		proxy: {}
-	},
-	plugins: [sveltekit()],
+	plugins: [sveltekit(), baseSsl()],
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}']
 	}
